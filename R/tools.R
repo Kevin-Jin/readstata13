@@ -14,6 +14,42 @@
 # You should have received a copy of the GNU General Public License along
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 
+
+# Check for isDta
+#
+# @param x filepath
+# @author jmg
+isDta <- function(x) grepl(".dta$", x = x)
+
+# Check for isZip
+#
+# @param x filepath
+# @author jmg
+isZip <- function(x) grepl(".zip$", x = x)
+
+# Extract archive and return dta-path
+#
+# @param x filepath of archive
+# @author jmg
+extract <- function(x) {
+  tmpdir <- tempdir()
+
+  if (isZip(x)){
+    message("zip-file found")
+    uz <- unzip(zipfile = x, exdir = tmpdir)
+  }
+
+  uz <- uz[grep(x = uz, pattern = ".dta$")]
+
+  if (length(uz) > 1) {
+    warning("Multiple dta-files in archive. Selecting first dta-file found.")
+    uz <- uz[1]
+  }
+
+  uz
+}
+
+
 # Wrapper Around iconv Calls for Code Readability
 #
 # @param x element to be converted
