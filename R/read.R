@@ -132,6 +132,10 @@ read.dta13 <- function(file, convert.factors = TRUE, generate.factors=FALSE,
   if (!file.exists(filepath))
     return(message("File not found."))
 
+  # check if file is connection else assume it exists?
+  if (!isDta(file)) {
+    filepath <- extract(file)
+  }
 
 
   # some select.row checks
