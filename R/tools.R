@@ -18,19 +18,18 @@
 # Check for isDta
 #
 # @param x filepath
-# @author jmg
 isDta <- function(x) grepl(".dta$", x = x)
 
 # Check for isZip
 #
 # @param x filepath
-# @author jmg
 isZip <- function(x) grepl(".zip$", x = x)
 
 # Extract archive and return dta-path
 #
 # @param x filepath of archive
-# @author jmg
+# @author Jan Marvin Garbuszus \email{jan.garbuszus@@ruhr-uni-bochum.de}
+# @author Sebastian Jeworutzki \email{sebastian.jeworutzki@@ruhr-uni-bochum.de}
 extract <- function(x) {
   tmpdir <- tempdir()
 

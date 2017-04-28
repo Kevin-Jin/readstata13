@@ -110,7 +110,7 @@
 #' @author Jan Marvin Garbuszus \email{jan.garbuszus@@ruhr-uni-bochum.de}
 #' @author Sebastian Jeworutzki \email{sebastian.jeworutzki@@ruhr-uni-bochum.de}
 #' @useDynLib readstata13
-#' @importFrom utils download.file
+#' @importFrom utils download.file unzip
 #' @importFrom stats na.omit
 #' @export
 read.dta13 <- function(file, convert.factors = TRUE, generate.factors=FALSE,
