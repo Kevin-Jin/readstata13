@@ -217,11 +217,43 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
   */
 
   IntegerVector vartype(k);
+  off64_t row_size = 0;
   for (uint16_t i=0; i<k; ++i)
   {
     uint16_t nvartype = 0;
     nvartype = readbin(nvartype, file, swapit);
     vartype[i] = nvartype;
+    switch(nvartype < 2046 ? 2045 : nvartype)
+    {
+      // double
+    case 65526:
+      row_size += sizeof(double);
+      break;
+      // float
+    case 65527:
+      row_size += sizeof(float);
+      break;
+      //long
+    case 65528:
+      row_size += sizeof(int32_t);
+      break;
+      // int
+    case 65529:
+      row_size += sizeof(int16_t);
+      break;
+      // byte
+    case 65530:
+      row_size += sizeof(int8_t);
+      break;
+      // strings with 2045 or fewer characters
+    case 2045:
+      row_size += nvartype;
+      break;
+      // string of any length
+    case 32768:
+      row_size += sizeof(uint64_t);
+      break;
+    }
   }
 
   //</variable_types>
@@ -428,24 +460,14 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
     }
   }
 
-  uint64_t tmp_j = 0, tmp_val = 0;
-  bool import = 1;
+  // skip the rows we don't hand over to R.
+  fseeko64(file, row_size * nmin, SEEK_CUR);
 
+  off64_t pos;
   // 2. fill it with data
-  for(uint64_t j=0; j<n; ++j)
+  for(uint64_t j=0; j<nn; ++j)
   {
-
-    // import is a bool if data is handed over to R
-    if ((j < nmin) || (j > nmax)) {
-      import = 0;
-    } else {
-      import = 1;
-
-      // temoprary index values to be reset at the end of the loop
-      tmp_val = j;
-      j = tmp_j;
-      tmp_j++;
-    }
+    pos = ftello64(file);
 
     for (uint16_t i=0; i<k; ++i)
     {
@@ -458,12 +480,10 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
         double val_d = 0;
         val_d = readbin(val_d, file, swapit);
 
-        if (import == 1) {
-          if ((missing == 0) && !(val_d == R_NegInf) && ((val_d<STATA_DOUBLE_NA_MIN) || (val_d>STATA_DOUBLE_NA_MAX)) )
-            REAL(VECTOR_ELT(df,i))[j] = NA_REAL;
-          else
-            REAL(VECTOR_ELT(df,i))[j] = val_d;
-        }
+        if ((missing == 0) && !(val_d == R_NegInf) && ((val_d<STATA_DOUBLE_NA_MIN) || (val_d>STATA_DOUBLE_NA_MAX)) )
+          REAL(VECTOR_ELT(df,i))[j] = NA_REAL;
+        else
+          REAL(VECTOR_ELT(df,i))[j] = val_d;
         break;
       }
         // float
@@ -472,12 +492,10 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
         float val_f = 0;
         val_f = readbin(val_f, file, swapit);
 
-        if (import == 1) {
-          if ((missing == 0) && ((val_f<STATA_FLOAT_NA_MIN) || (val_f>STATA_FLOAT_NA_MAX)) )
-            REAL(VECTOR_ELT(df,i))[j] = NA_REAL;
-          else
-            REAL(VECTOR_ELT(df,i))[j] = val_f;
-        }
+        if ((missing == 0) && ((val_f<STATA_FLOAT_NA_MIN) || (val_f>STATA_FLOAT_NA_MAX)) )
+          REAL(VECTOR_ELT(df,i))[j] = NA_REAL;
+        else
+          REAL(VECTOR_ELT(df,i))[j] = val_f;
         break;
       }
         //long
@@ -486,12 +504,10 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
         int32_t val_l = 0;
         val_l = readbin(val_l, file, swapit);
 
-        if (import == 1) {
-          if ((missing == 0) && ((val_l<STATA_INT_NA_MIN) || (val_l>STATA_INT_NA_MAX)) )
-            INTEGER(VECTOR_ELT(df,i))[j]  = NA_INTEGER;
-          else
-            INTEGER(VECTOR_ELT(df,i))[j] = val_l;
-        }
+        if ((missing == 0) && ((val_l<STATA_INT_NA_MIN) || (val_l>STATA_INT_NA_MAX)) )
+          INTEGER(VECTOR_ELT(df,i))[j]  = NA_INTEGER;
+        else
+          INTEGER(VECTOR_ELT(df,i))[j] = val_l;
         break;
       }
         // int
@@ -500,12 +516,10 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
         int16_t val_i = 0;
         val_i = readbin(val_i, file, swapit);
 
-        if (import == 1) {
-          if ((missing == 0) && ((val_i<STATA_SHORTINT_NA_MIN) || (val_i>STATA_SHORTINT_NA_MAX)) )
-            INTEGER(VECTOR_ELT(df,i))[j] = NA_INTEGER;
-          else
-            INTEGER(VECTOR_ELT(df,i))[j] = val_i;
-        }
+        if ((missing == 0) && ((val_i<STATA_SHORTINT_NA_MIN) || (val_i>STATA_SHORTINT_NA_MAX)) )
+          INTEGER(VECTOR_ELT(df,i))[j] = NA_INTEGER;
+        else
+          INTEGER(VECTOR_ELT(df,i))[j] = val_i;
         break;
       }
         // byte
@@ -514,12 +528,10 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
         int8_t val_b = 0;
         val_b = readbin(val_b, file, swapit);
 
-        if (import == 1) {
-          if (missing == 0 && ( (val_b<STATA_BYTE_NA_MIN) || (val_b>STATA_BYTE_NA_MAX)) )
-            INTEGER(VECTOR_ELT(df,i))[j] = NA_INTEGER;
-          else
-            INTEGER(VECTOR_ELT(df,i))[j] = val_b;
-        }
+        if (missing == 0 && ( (val_b<STATA_BYTE_NA_MIN) || (val_b>STATA_BYTE_NA_MAX)) )
+          INTEGER(VECTOR_ELT(df,i))[j] = NA_INTEGER;
+        else
+          INTEGER(VECTOR_ELT(df,i))[j] = val_b;
         break;
       }
         // strings with 2045 or fewer characters
@@ -530,9 +542,7 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
         std::string val_s (len, '\0');
 
         readstring(val_s, file, val_s.size());
-        if (import == 1) {
-          as<CharacterVector>(df[i])[j] = val_s;
-        }
+        as<CharacterVector>(df[i])[j] = val_s;
         break;
       }
         // string of any length
@@ -555,9 +565,7 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
             val_stream << v << '_' << o;
             string val_strl = val_stream.str();
             //sprintf(val_strl, "%010d%010d", v, o);
-            if (import == 1) {
-              as<CharacterVector>(df[i])[j] = val_strl;
-            }
+            as<CharacterVector>(df[i])[j] = val_strl;
             break;
           }
         case 118:
@@ -583,9 +591,7 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
             val_stream << v << '_' << o;
             string val_strl = val_stream.str();
 
-            if (import == 1) {
-              as<CharacterVector>(df[i])[j] = val_strl;
-            }
+            as<CharacterVector>(df[i])[j] = val_strl;
             break;
           }
         }
@@ -593,11 +599,14 @@ List read_dta(FILE * file, const bool missing, const IntegerVector selectrows) {
       }
       Rcpp::checkUserInterrupt();
     }
-
-    // reset temporary index values to their original values
-    if (import == 1)
-      j = tmp_val;
+    if (ftello64(file) - pos != row_size) {
+      Rcpp::warning("\n actual: %lld \n expected: %lld\n", ftello64(file) - pos, row_size);
+      Rcpp::stop("When calculating row size: Something went wrong!");
+    }
   }
+
+  // skip the rows we don't hand over to R.
+  fseeko64(file, row_size * (n - nmax - 1), SEEK_CUR);
 
   // 3. Create a data.frame
   df.attr("row.names") = rvec;
